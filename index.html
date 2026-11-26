@@ -1,1 +1,442 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="iGas Cấp Dầu" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>iGas Cấp Dầu PWA</title>
+  <style>
+    :root {
+      --bg: #f3f6f5;
+      --card: #ffffff;
+      --primary: #0f766e;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --ok-bg: #ecfdf5;
+      --ok-text: #065f46;
+      --err-bg: #fef2f2;
+      --err-text: #991b1b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+    }
+    .app { max-width: 480px; margin: 0 auto; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 8px;
+    }
+    .title { font-size: 19px; font-weight: 700; margin: 0; }
+    .actions { display: flex; gap: 6px; }
+    .btn-small {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    }
+    .field { margin-bottom: 14px; }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    select, input {
+      width: 100%;
+      height: 48px;
+      padding: 0 12px;
+      font-size: 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .btn-primary {
+      width: 100%;
+      height: 50px;
+      border: none;
+      border-radius: 11px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .btn-primary:disabled { opacity: 0.55; }
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      background: #f8fafc;
+      border-radius: 9px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .status {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.45;
+      display: none;
+      margin-top: 12px;
+    }
+    .status.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
+    .status.err { display: block; background: var(--err-bg); color: var(--err-text); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 20;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1 class="title">Tạo phiếu cấp dầu iGas</h1>
+      <div class="actions">
+        <button type="button" class="btn-small" id="btnOpenLogin">Tài khoản</button>
+        <button type="button" class="btn-small" id="btnClearAuth">Xoá lưu</button>
+      </div>
+    </div>
 
+    <form class="card" id="ticketForm">
+      <div class="field">
+        <label for="customerSelect">1. Khách hàng</label>
+        <select id="customerSelect" required>
+          <option value="">-- Đang tải khách hàng... --</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="vehicleSelect">2. Đối tượng cấp</label>
+        <select id="vehicleSelect" required disabled>
+          <option value="">-- Chọn Khách hàng trước --</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="quotaInput">3. Hạn mức cấp (lít)</label>
+        <input
+          id="quotaInput"
+          type="number"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          min="1"
+          step="1"
+          placeholder="Nhập số lít"
+          required
+        />
+      </div>
+
+      <div class="meta" id="defaultsInfo">
+        Ngày cấp: 08:00 hôm nay · Ngày hết hạn: 18:00 hôm nay · Hạn mức 1 lần bơm: theo Hạn mức cấp
+      </div>
+
+      <button type="submit" class="btn-primary" id="btnSubmit">Tạo phiếu</button>
+      <div class="status" id="statusBox"></div>
+    </form>
+  </div>
+
+  <div class="modal-backdrop" id="loginModal">
+    <div class="modal">
+      <h2 style="margin:0 0 8px;font-size:17px;">Đăng nhập iGas</h2>
+      <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.45;">
+        Tài khoản được lưu trực tiếp trên thiết bị này, không lưu lên GitHub.
+      </p>
+      <div class="field">
+        <label for="usernameInput">Tên đăng nhập</label>
+        <input id="usernameInput" type="text" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="passwordInput">Mật khẩu</label>
+        <input id="passwordInput" type="password" autocomplete="current-password" />
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn-small" style="flex:1;height:44px;" id="btnCloseLogin">Đóng</button>
+        <button type="button" class="btn-primary" style="flex:2;height:44px;" id="btnDoLogin">Lưu & Tải dữ liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // THAY BẰNG URL WORKER CỦA BẠN Ở BƯỚC 1
+    const WORKER_BASE_URL = "https://igas-proxy.manhthang.workers.dev/";
+    const STORAGE_KEY = "igas_device_credentials_v1";
+
+    const customerSelect = document.getElementById("customerSelect");
+    const vehicleSelect = document.getElementById("vehicleSelect");
+    const quotaInput = document.getElementById("quotaInput");
+    const defaultsInfo = document.getElementById("defaultsInfo");
+    const statusBox = document.getElementById("statusBox");
+    const btnSubmit = document.getElementById("btnSubmit");
+    const loginModal = document.getElementById("loginModal");
+    const usernameInput = document.getElementById("usernameInput");
+    const passwordInput = document.getElementById("passwordInput");
+
+    function getSavedCreds() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.username && parsed.password) {
+          return { username: String(parsed.username), password: String(parsed.password) };
+        }
+      } catch {}
+      return null;
+    }
+
+    function saveCreds(username, password) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, password }));
+    }
+
+    function clearCreds() {
+      localStorage.removeItem(STORAGE_KEY);
+      usernameInput.value = "";
+      passwordInput.value = "";
+    }
+
+    function authHeaders() {
+      const creds = getSavedCreds();
+      if (!creds) return {};
+      return {
+        "X-Igas-User": creds.username,
+        "X-Igas-Pass": creds.password,
+      };
+    }
+
+    function showStatus(type, msg) {
+      statusBox.className = `status ${type}`;
+      statusBox.textContent = msg;
+    }
+
+    function clearStatus() {
+      statusBox.className = "status";
+      statusBox.textContent = "";
+    }
+
+    async function initTicketForm() {
+      clearStatus();
+      const creds = getSavedCreds();
+      if (!creds) {
+        customerSelect.innerHTML = `<option value="">-- Vui lòng nhập tài khoản --</option>`;
+        vehicleSelect.innerHTML = `<option value="">-- Chọn Khách hàng trước --</option>`;
+        vehicleSelect.disabled = true;
+        loginModal.classList.add("open");
+        return;
+      }
+
+      customerSelect.innerHTML = `<option value="">-- Đang tải khách hàng... --</option>`;
+      vehicleSelect.innerHTML = `<option value="">-- Chọn Khách hàng trước --</option>`;
+      vehicleSelect.disabled = true;
+
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/init-ticket`, {
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (res.status === 401) {
+          loginModal.classList.add("open");
+          showStatus("err", data.detail || "Tài khoản chưa đúng hoặc hết hiệu lực");
+          return;
+        }
+        if (!res.ok) {
+          showStatus("err", data.detail || "Không thể tải danh sách khách hàng");
+          return;
+        }
+
+        if (data.defaults) {
+          defaultsInfo.textContent =
+            `Ngày cấp: ${data.defaults.delivery_time} · Ngày hết hạn: ${data.defaults.expired_time} · Hạn mức 1 lần bơm: theo Hạn mức cấp`;
+        }
+
+        customerSelect.innerHTML = `<option value="">-- Chọn Khách hàng --</option>`;
+        for (const c of data.customers || []) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.text;
+          customerSelect.appendChild(opt);
+        }
+      } catch (err) {
+        showStatus("err", `Lỗi kết nối Worker: ${err.message}`);
+      }
+    }
+
+    customerSelect.addEventListener("change", async () => {
+      const custId = customerSelect.value;
+      vehicleSelect.innerHTML = `<option value="">-- Đang tải đối tượng cấp... --</option>`;
+      vehicleSelect.disabled = true;
+
+      if (!custId) {
+        vehicleSelect.innerHTML = `<option value="">-- Chọn Khách hàng trước --</option>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `${WORKER_BASE_URL}/api/vehicles?customer_id=${encodeURIComponent(custId)}`,
+          { headers: authHeaders() }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus("err", data.detail || "Không tải được đối tượng cấp");
+          vehicleSelect.innerHTML = `<option value="">-- Lỗi tải đối tượng cấp --</option>`;
+          return;
+        }
+
+        vehicleSelect.innerHTML = `<option value="">-- Chọn Đối tượng cấp --</option>`;
+        for (const v of data.vehicles || []) {
+          const opt = document.createElement("option");
+          opt.value = v.id;
+          opt.textContent = v.text;
+          vehicleSelect.appendChild(opt);
+        }
+        vehicleSelect.disabled = false;
+      } catch (err) {
+        showStatus("err", `Lỗi tải đối tượng cấp: ${err.message}`);
+      }
+    });
+
+    quotaInput.addEventListener("input", () => {
+      quotaInput.value = quotaInput.value.replace(/[^0-9]/g, "");
+    });
+
+    document.getElementById("ticketForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearStatus();
+
+      const creds = getSavedCreds();
+      if (!creds) {
+        loginModal.classList.add("open");
+        return;
+      }
+
+      const customer_id = customerSelect.value;
+      const vehicle_id = vehicleSelect.value;
+      const quota_value = parseInt(quotaInput.value, 10);
+
+      if (!customer_id || !vehicle_id || !quota_value || quota_value <= 0) {
+        showStatus("err", "Vui lòng chọn Khách hàng, Đối tượng cấp và nhập Hạn mức cấp hợp lệ.");
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = "Đang tạo phiếu...";
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/create-ticket`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ customer_id, vehicle_id, quota_value }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus("err", data.detail || "Tạo phiếu thất bại");
+        } else {
+          const codeInfo = data.coupon_code ? ` · Mã phiếu: ${data.coupon_code}` : "";
+          const idInfo = data.ticket_id ? ` (ID: ${data.ticket_id})` : "";
+          showStatus(
+            "ok",
+            `Thành công${idInfo}${codeInfo} · Hạn mức: ${data.quota_value} · ${data.delivery_time} → ${data.expired_time}`
+          );
+          quotaInput.value = "";
+        }
+      } catch (err) {
+        showStatus("err", `Lỗi mạng: ${err.message}`);
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "Tạo phiếu";
+      }
+    });
+
+    document.getElementById("btnOpenLogin").addEventListener("click", () => {
+      const creds = getSavedCreds();
+      usernameInput.value = creds?.username || "";
+      passwordInput.value = creds?.password || "";
+      loginModal.classList.add("open");
+    });
+
+    document.getElementById("btnCloseLogin").addEventListener("click", () => {
+      loginModal.classList.remove("open");
+    });
+
+    document.getElementById("btnClearAuth").addEventListener("click", () => {
+      clearCreds();
+      customerSelect.innerHTML = `<option value="">-- Đã xoá tài khoản lưu trên máy --</option>`;
+      vehicleSelect.innerHTML = `<option value="">-- Chọn Khách hàng trước --</option>`;
+      vehicleSelect.disabled = true;
+      showStatus("ok", "Đã xoá thông tin đăng nhập lưu trên thiết bị này.");
+    });
+
+    document.getElementById("btnDoLogin").addEventListener("click", async () => {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value.trim();
+      if (!username || !password) {
+        alert("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || "Đăng nhập thất bại");
+          return;
+        }
+        saveCreds(username, password);
+        loginModal.classList.remove("open");
+        await initTicketForm();
+      } catch (err) {
+        alert(`Lỗi kết nối: ${err.message}`);
+      }
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+    initTicketForm();
+  </script>
+</body>
+</html>
