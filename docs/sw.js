@@ -1,4 +1,4 @@
-const CACHE_NAME = "igas-pwa-v2";
+const CACHE_NAME = "igas-pwa-v4";
 const STATIC_ASSETS = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
