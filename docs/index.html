@@ -14,6 +14,7 @@
       --bg: #f3f6f5;
       --card: #ffffff;
       --primary: #0f766e;
+      --danger: #b91c1c;
       --text: #0f172a;
       --muted: #64748b;
       --border: #cbd5e1;
@@ -32,7 +33,7 @@
       color: var(--text);
       padding: 16px;
     }
-    .app { max-width: 480px; margin: 0 auto; }
+    .app { max-width: 520px; margin: 0 auto; }
     .header {
       display: flex;
       justify-content: space-between;
@@ -60,6 +61,9 @@
       border-radius: 12px;
       margin-bottom: 14px;
     }
+    .mode-switch.single-tab {
+      grid-template-columns: 1fr;
+    }
     .mode-btn {
       height: 40px;
       border: none;
@@ -74,6 +78,10 @@
       color: #ffffff;
       box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
     }
+    .mode-btn.delete-tab.active {
+      background: var(--danger);
+      box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
+    }
     .card {
       background: var(--card);
       border-radius: 14px;
@@ -85,7 +93,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
     .hidden { display: none; }
     label {
@@ -112,7 +120,6 @@
       font-size: 12px;
       color: var(--primary);
       font-weight: 600;
-      margin-top: -8px;
       margin-bottom: 12px;
       min-height: 18px;
     }
@@ -148,6 +155,44 @@
     .status.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
     .status.warn { display: block; background: var(--warn-bg); color: var(--warn-text); }
     .status.err { display: block; background: var(--err-bg); color: var(--err-text); }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .order-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .order-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #fafafa;
+    }
+    .order-main { min-width: 0; }
+    .order-title { font-size: 14px; font-weight: 700; }
+    .order-sub { font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+    .btn-del {
+      border: none;
+      background: var(--danger);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .btn-del:disabled { opacity: 0.5; }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -171,25 +216,20 @@
 <body>
   <div class="app">
     <div class="header">
-      <h1 class="title">Tạo phiếu cấp dầu iGas</h1>
+      <h1 class="title">iGas Cấp Dầu</h1>
       <div class="actions">
         <button type="button" class="btn-small" id="btnOpenLogin">Tài khoản</button>
         <button type="button" class="btn-small" id="btnClearAuth">Xoá lưu</button>
       </div>
     </div>
 
-    <!-- Nút chuyển cơ chế: Cấp 1 phiếu <-> Cấp hàng loạt -->
-    <div class="mode-switch" role="tablist" aria-label="Cơ chế cấp phiếu">
-      <button type="button" class="mode-btn active" id="btnModeSingle" data-mode="single">
-        Cấp 1 phiếu
-      </button>
-      <button type="button" class="mode-btn" id="btnModeBatch" data-mode="batch">
-        Cấp hàng loạt
-      </button>
+    <div class="mode-switch single-tab" id="modeSwitch">
+      <button type="button" class="mode-btn active" id="btnTabIssue">Phiếu cấp dầu</button>
+      <button type="button" class="mode-btn delete-tab hidden" id="btnTabDelete">Xoá phiếu</button>
     </div>
 
-    <form class="card" id="ticketForm">
-      <!-- 1. Khách hàng (không mở bàn phím ảo) -->
+    <!-- Giao diện 1 (Mặc định): Phiếu cấp dầu -->
+    <form class="card" id="issueCard">
       <div class="field">
         <label for="customerSelect">1. Khách hàng</label>
         <select id="customerSelect" required>
@@ -197,36 +237,24 @@
         </select>
       </div>
 
-      <!-- 2A. Chế độ Cấp 1 phiếu: chọn 1 Đối tượng cấp -->
-      <div class="field" id="singleVehicleBox">
-        <label for="singleVehicleSelect">2. Đối tượng cấp</label>
-        <select id="singleVehicleSelect" required disabled>
-          <option value="">-- Chọn Khách hàng trước --</option>
-        </select>
-      </div>
-
-      <!-- 2B. Chế độ Cấp hàng loạt: chọn Từ - Đến đối tượng cấp -->
-      <div id="batchVehicleBox" class="hidden">
-        <div class="range-grid">
-          <div>
-            <label for="fromVehicleSelect">2a. Từ đối tượng</label>
-            <select id="fromVehicleSelect" disabled>
-              <option value="">-- Chọn KH --</option>
-            </select>
-          </div>
-          <div>
-            <label for="toVehicleSelect">2b. Đến đối tượng</label>
-            <select id="toVehicleSelect" disabled>
-              <option value="">-- Chọn KH --</option>
-            </select>
-          </div>
+      <div class="range-grid">
+        <div>
+          <label for="fromVehicleSelect">2a. Từ đối tượng</label>
+          <select id="fromVehicleSelect" required disabled>
+            <option value="">-- Chọn KH --</option>
+          </select>
         </div>
-        <div class="range-hint" id="rangeSummary"></div>
+        <div>
+          <label for="toVehicleSelect">2b. Đến đối tượng</label>
+          <select id="toVehicleSelect" required disabled>
+            <option value="">-- Chọn KH --</option>
+          </select>
+        </div>
       </div>
+      <div class="range-hint" id="rangeSummary"></div>
 
-      <!-- 3. Hạn mức cấp (chỉ mở bàn phím số) -->
       <div class="field">
-        <label for="quotaInput" id="quotaLabel">3. Hạn mức cấp (lít)</label>
+        <label for="quotaInput">3. Hạn mức cấp (lít)</label>
         <input
           id="quotaInput"
           type="number"
@@ -240,12 +268,27 @@
       </div>
 
       <div class="meta" id="defaultsInfo">
-        Ngày cấp: 08:00 hôm nay · Ngày hết hạn: 18:00 hôm nay · Hạn mức 1 lần bơm: theo Hạn mức cấp · Chống trùng theo Ngày + Đối tượng + Hạn mức
+        Ngày cấp: 08:00 hôm nay · Ngày hết hạn: 18:00 hôm nay · Hạn mức 1 lần bơm: theo Hạn mức cấp · Chống trùng: Ngày + Đối tượng + Hạn mức
       </div>
 
-      <button type="submit" class="btn-primary" id="btnSubmit">Tạo phiếu</button>
-      <div class="status" id="statusBox"></div>
+      <button type="submit" class="btn-primary" id="btnSubmit">Tạo phiếu cấp dầu</button>
+      <div class="status" id="issueStatus"></div>
     </form>
+
+    <!-- Giao diện 2: Xoá phiếu (chỉ mở khi tài khoản có quyền xóa) -->
+    <section class="card hidden" id="deleteCard">
+      <div class="filter-row">
+        <input
+          id="orderFilterInput"
+          type="text"
+          placeholder="Lọc theo đối tượng (FL02, TT18...) hoặc mã phiếu"
+        />
+        <button type="button" class="btn-small" style="height:48px;padding:0 14px;" id="btnRefreshOrders">Tải lại</button>
+      </div>
+      <div class="meta" id="ordersMeta">Đang tải danh sách phiếu trong ngày...</div>
+      <div class="order-list" id="orderList"></div>
+      <div class="status" id="deleteStatus"></div>
+    </section>
   </div>
 
   <div class="modal-backdrop" id="loginModal">
@@ -274,27 +317,34 @@
     const WORKER_BASE_URL = "https://igas-proxy.manhthang.workers.dev";
     const STORAGE_KEY = "igas_device_credentials_v1";
 
-    const btnModeSingle = document.getElementById("btnModeSingle");
-    const btnModeBatch = document.getElementById("btnModeBatch");
-    const singleVehicleBox = document.getElementById("singleVehicleBox");
-    const batchVehicleBox = document.getElementById("batchVehicleBox");
+    const modeSwitch = document.getElementById("modeSwitch");
+    const btnTabIssue = document.getElementById("btnTabIssue");
+    const btnTabDelete = document.getElementById("btnTabDelete");
+    const issueCard = document.getElementById("issueCard");
+    const deleteCard = document.getElementById("deleteCard");
 
     const customerSelect = document.getElementById("customerSelect");
-    const singleVehicleSelect = document.getElementById("singleVehicleSelect");
     const fromVehicleSelect = document.getElementById("fromVehicleSelect");
     const toVehicleSelect = document.getElementById("toVehicleSelect");
     const rangeSummary = document.getElementById("rangeSummary");
-    const quotaLabel = document.getElementById("quotaLabel");
     const quotaInput = document.getElementById("quotaInput");
     const defaultsInfo = document.getElementById("defaultsInfo");
-    const statusBox = document.getElementById("statusBox");
+    const issueStatus = document.getElementById("issueStatus");
     const btnSubmit = document.getElementById("btnSubmit");
+
+    const orderFilterInput = document.getElementById("orderFilterInput");
+    const btnRefreshOrders = document.getElementById("btnRefreshOrders");
+    const ordersMeta = document.getElementById("ordersMeta");
+    const orderList = document.getElementById("orderList");
+    const deleteStatus = document.getElementById("deleteStatus");
+
     const loginModal = document.getElementById("loginModal");
     const usernameInput = document.getElementById("usernameInput");
     const passwordInput = document.getElementById("passwordInput");
 
-    let mode = "single"; // "single" | "batch"
     let currentVehicles = [];
+    let todayOrders = [];
+    let canDeletePermission = false;
 
     function getSavedCreds() {
       try {
@@ -327,44 +377,38 @@
       };
     }
 
-    function showStatus(type, msg) {
-      statusBox.className = `status ${type}`;
-      statusBox.textContent = msg;
-    }
-
-    function clearStatus() {
-      statusBox.className = "status";
-      statusBox.textContent = "";
-    }
-
-    function applyMode(nextMode) {
-      mode = nextMode === "batch" ? "batch" : "single";
-      const isBatch = mode === "batch";
-
-      btnModeSingle.classList.toggle("active", !isBatch);
-      btnModeBatch.classList.toggle("active", isBatch);
-
-      singleVehicleBox.classList.toggle("hidden", isBatch);
-      batchVehicleBox.classList.toggle("hidden", !isBatch);
-
-      singleVehicleSelect.required = !isBatch;
-      fromVehicleSelect.required = isBatch;
-      toVehicleSelect.required = isBatch;
-
-      quotaLabel.textContent = isBatch
-        ? "3. Hạn mức cấp mỗi đối tượng (lít)"
-        : "3. Hạn mức cấp (lít)";
-
-      if (!btnSubmit.disabled) {
-        btnSubmit.textContent = isBatch ? "Tạo phiếu theo khoảng" : "Tạo phiếu";
+    function setDeletePermission(allowed) {
+      canDeletePermission = Boolean(allowed);
+      btnTabDelete.classList.toggle("hidden", !canDeletePermission);
+      modeSwitch.classList.toggle("single-tab", !canDeletePermission);
+      if (!canDeletePermission) {
+        switchTab("issue");
       }
-
-      clearStatus();
-      updateRangeSummary();
     }
 
-    btnModeSingle.addEventListener("click", () => applyMode("single"));
-    btnModeBatch.addEventListener("click", () => applyMode("batch"));
+    function switchTab(tab) {
+      const isDelete = tab === "delete" && canDeletePermission;
+      btnTabIssue.classList.toggle("active", !isDelete);
+      btnTabDelete.classList.toggle("active", isDelete);
+      issueCard.classList.toggle("hidden", isDelete);
+      deleteCard.classList.toggle("hidden", !isDelete);
+      if (isDelete) {
+        loadTodayOrders();
+      }
+    }
+
+    btnTabIssue.addEventListener("click", () => switchTab("issue"));
+    btnTabDelete.addEventListener("click", () => switchTab("delete"));
+
+    function showBox(el, type, msg) {
+      el.className = `status ${type}`;
+      el.textContent = msg;
+    }
+
+    function clearBox(el) {
+      el.className = "status";
+      el.textContent = "";
+    }
 
     function getSelectedRangeVehicles() {
       const fromId = fromVehicleSelect.value;
@@ -381,10 +425,6 @@
     }
 
     function updateRangeSummary() {
-      if (mode !== "batch") {
-        rangeSummary.textContent = "";
-        return;
-      }
       const list = getSelectedRangeVehicles();
       if (list.length === 0) {
         rangeSummary.textContent = "";
@@ -400,47 +440,18 @@
 
     function resetVehicleSelects(placeholder) {
       currentVehicles = [];
-      singleVehicleSelect.innerHTML = `<option value="">${placeholder}</option>`;
       fromVehicleSelect.innerHTML = `<option value="">${placeholder}</option>`;
       toVehicleSelect.innerHTML = `<option value="">${placeholder}</option>`;
-      singleVehicleSelect.disabled = true;
       fromVehicleSelect.disabled = true;
       toVehicleSelect.disabled = true;
       rangeSummary.textContent = "";
     }
 
-    function populateVehicleSelects(vehicles) {
-      currentVehicles = vehicles;
-      singleVehicleSelect.innerHTML = `<option value="">-- Chọn Đối tượng cấp --</option>`;
-      fromVehicleSelect.innerHTML = `<option value="">-- Từ --</option>`;
-      toVehicleSelect.innerHTML = `<option value="">-- Đến --</option>`;
-
-      for (const v of vehicles) {
-        const optSingle = document.createElement("option");
-        optSingle.value = v.id;
-        optSingle.textContent = v.text;
-        singleVehicleSelect.appendChild(optSingle);
-
-        const optFrom = document.createElement("option");
-        optFrom.value = v.id;
-        optFrom.textContent = v.text;
-        fromVehicleSelect.appendChild(optFrom);
-
-        const optTo = document.createElement("option");
-        optTo.value = v.id;
-        optTo.textContent = v.text;
-        toVehicleSelect.appendChild(optTo);
-      }
-
-      singleVehicleSelect.disabled = false;
-      fromVehicleSelect.disabled = false;
-      toVehicleSelect.disabled = false;
-    }
-
     async function initTicketForm() {
-      clearStatus();
+      clearBox(issueStatus);
       const creds = getSavedCreds();
       if (!creds) {
+        setDeletePermission(false);
         customerSelect.innerHTML = `<option value="">-- Vui lòng nhập tài khoản --</option>`;
         resetVehicleSelects("-- Chọn KH --");
         loginModal.classList.add("open");
@@ -456,18 +467,21 @@
         });
         const data = await res.json();
         if (res.status === 401) {
+          setDeletePermission(false);
           loginModal.classList.add("open");
-          showStatus("err", data.detail || "Tài khoản chưa đúng hoặc hết hiệu lực");
+          showBox(issueStatus, "err", data.detail || "Tài khoản chưa đúng hoặc hết hiệu lực");
           return;
         }
         if (!res.ok) {
-          showStatus("err", data.detail || "Không thể tải danh sách khách hàng");
+          showBox(issueStatus, "err", data.detail || "Không thể tải danh sách khách hàng");
           return;
         }
 
+        setDeletePermission(Boolean(data.can_delete));
+
         if (data.defaults) {
           defaultsInfo.textContent =
-            `Ngày cấp: ${data.defaults.delivery_time} · Ngày hết hạn: ${data.defaults.expired_time} · Hạn mức 1 lần bơm: theo Hạn mức cấp`;
+            `Ngày cấp: ${data.defaults.delivery_time} · Ngày hết hạn: ${data.defaults.expired_time} · Hạn mức 1 lần bơm: theo Hạn mức cấp · Chống trùng: Ngày + Đối tượng + Hạn mức`;
         }
 
         customerSelect.innerHTML = `<option value="">-- Chọn Khách hàng --</option>`;
@@ -478,13 +492,13 @@
           customerSelect.appendChild(opt);
         }
       } catch (err) {
-        showStatus("err", `Lỗi kết nối Worker: ${err.message}`);
+        showBox(issueStatus, "err", `Lỗi kết nối Worker: ${err.message}`);
       }
     }
 
     customerSelect.addEventListener("change", async () => {
       const custId = customerSelect.value;
-      clearStatus();
+      clearBox(issueStatus);
       resetVehicleSelects("-- Đang tải... --");
 
       if (!custId) {
@@ -499,7 +513,7 @@
         );
         const data = await res.json();
         if (!res.ok) {
-          showStatus("err", data.detail || "Không tải được đối tượng cấp");
+          showBox(issueStatus, "err", data.detail || "Không tải được đối tượng cấp");
           resetVehicleSelects("-- Lỗi tải --");
           return;
         }
@@ -510,15 +524,33 @@
           return;
         }
 
-        populateVehicleSelects(vehicles);
+        currentVehicles = vehicles;
+        fromVehicleSelect.innerHTML = `<option value="">-- Từ --</option>`;
+        toVehicleSelect.innerHTML = `<option value="">-- Đến --</option>`;
+
+        for (const v of vehicles) {
+          const optFrom = document.createElement("option");
+          optFrom.value = v.id;
+          optFrom.textContent = v.text;
+          fromVehicleSelect.appendChild(optFrom);
+
+          const optTo = document.createElement("option");
+          optTo.value = v.id;
+          optTo.textContent = v.text;
+          toVehicleSelect.appendChild(optTo);
+        }
+
+        fromVehicleSelect.disabled = false;
+        toVehicleSelect.disabled = false;
       } catch (err) {
-        showStatus("err", `Lỗi tải đối tượng cấp: ${err.message}`);
+        showBox(issueStatus, "err", `Lỗi tải đối tượng cấp: ${err.message}`);
         resetVehicleSelects("-- Lỗi tải --");
       }
     });
 
+    // Chọn Từ đối tượng xong tự động điền Đến đối tượng bằng Từ đối tượng
     fromVehicleSelect.addEventListener("change", () => {
-      if (fromVehicleSelect.value && !toVehicleSelect.value) {
+      if (fromVehicleSelect.value) {
         toVehicleSelect.value = fromVehicleSelect.value;
       }
       updateRangeSummary();
@@ -553,9 +585,9 @@
       return data;
     }
 
-    document.getElementById("ticketForm").addEventListener("submit", async (e) => {
+    issueCard.addEventListener("submit", async (e) => {
       e.preventDefault();
-      clearStatus();
+      clearBox(issueStatus);
 
       const creds = getSavedCreds();
       if (!creds) {
@@ -565,44 +597,10 @@
 
       const customer_id = customerSelect.value;
       const quota_value = parseInt(quotaInput.value, 10);
-
-      if (!customer_id || !quota_value || quota_value <= 0) {
-        showStatus("err", "Vui lòng chọn Khách hàng và nhập Hạn mức cấp > 0.");
-        return;
-      }
-
-      if (mode === "single") {
-        const vehicle_id = singleVehicleSelect.value;
-        const vehicleText = singleVehicleSelect.options[singleVehicleSelect.selectedIndex]?.text || "";
-        if (!vehicle_id) {
-          showStatus("err", "Vui lòng chọn Đối tượng cấp.");
-          return;
-        }
-
-        btnSubmit.disabled = true;
-        btnSubmit.textContent = "Đang tạo phiếu...";
-        try {
-          const data = await createSingleTicket(customer_id, vehicle_id, vehicleText, quota_value);
-          const codeInfo = data.coupon_code ? ` · Mã phiếu: ${data.coupon_code}` : "";
-          const idInfo = data.ticket_id ? ` (ID: ${data.ticket_id})` : "";
-          showStatus(
-            "ok",
-            `Thành công${idInfo}${codeInfo} · ${vehicleText} · Hạn mức: ${data.quota_value}L · ${data.delivery_time} → ${data.expired_time}`
-          );
-          quotaInput.value = "";
-        } catch (err) {
-          showStatus(err.isDuplicate ? "warn" : "err", err.message || "Tạo phiếu thất bại");
-        } finally {
-          btnSubmit.disabled = false;
-          btnSubmit.textContent = "Tạo phiếu";
-        }
-        return;
-      }
-
-      // Chế độ Cấp hàng loạt
       const targets = getSelectedRangeVehicles();
-      if (targets.length === 0) {
-        showStatus("err", "Vui lòng chọn khoảng Từ - Đến đối tượng cấp.");
+
+      if (!customer_id || targets.length === 0 || !quota_value || quota_value <= 0) {
+        showBox(issueStatus, "err", "Vui lòng chọn Khách hàng, Đối tượng cấp và nhập Hạn mức cấp > 0.");
         return;
       }
 
@@ -636,21 +634,120 @@
         if (dupLogs.length) parts.push(`Bỏ qua do trùng:\n${dupLogs.join("\n")}`);
         if (errorLogs.length) parts.push(`Lỗi:\n${errorLogs.join("\n")}`);
 
-        const boxType = errorLogs.length > 0
-          ? "err"
-          : dupLogs.length > 0
-          ? "warn"
-          : "ok";
+        const boxType = errorLogs.length > 0 ? "err" : dupLogs.length > 0 ? "warn" : "ok";
+        showBox(issueStatus, boxType, parts.join("\n\n"));
 
-        showStatus(boxType, parts.join("\n\n"));
         if (successLogs.length > 0 && errorLogs.length === 0) {
           quotaInput.value = "";
         }
       } finally {
         btnSubmit.disabled = false;
-        btnSubmit.textContent = "Tạo phiếu theo khoảng";
+        btnSubmit.textContent = "Tạo phiếu cấp dầu";
       }
     });
+
+    function renderOrderList() {
+      const kw = orderFilterInput.value.trim().toLowerCase();
+      const filtered = todayOrders.filter((o) => {
+        if (!kw) return true;
+        return (
+          String(o.vehicle_name || "").toLowerCase().includes(kw) ||
+          String(o.customer_name || "").toLowerCase().includes(kw) ||
+          String(o.coupon_code || "").toLowerCase().includes(kw) ||
+          String(o.id || "").toLowerCase().includes(kw)
+        );
+      });
+
+      orderList.innerHTML = "";
+      if (filtered.length === 0) {
+        orderList.innerHTML = `<div class="meta">Không có phiếu phù hợp trong ngày.</div>`;
+        return;
+      }
+
+      for (const o of filtered) {
+        const div = document.createElement("div");
+        div.className = "order-item";
+
+        const info = document.createElement("div");
+        info.className = "order-main";
+        const codeText = o.coupon_code ? ` · ${o.coupon_code}` : ` · #${o.id}`;
+        info.innerHTML = `
+          <div class="order-title">${o.vehicle_name || "Đối tượng"} · ${o.quota_value}L${codeText}</div>
+          <div class="order-sub">${o.customer_name || ""} · Đã bơm: ${o.extract_amount}L · ${o.delivery_time || ""}</div>
+        `;
+
+        const btnDel = document.createElement("button");
+        btnDel.type = "button";
+        btnDel.className = "btn-del";
+        btnDel.textContent = "Xoá";
+        btnDel.addEventListener("click", () => handleDeleteOrder(o, btnDel));
+
+        div.appendChild(info);
+        div.appendChild(btnDel);
+        orderList.appendChild(div);
+      }
+    }
+
+    async function loadTodayOrders() {
+      clearBox(deleteStatus);
+      ordersMeta.textContent = "Đang tải danh sách phiếu trong ngày...";
+      orderList.innerHTML = "";
+
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/orders-today`, {
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          ordersMeta.textContent = "Không tải được danh sách phiếu";
+          showBox(deleteStatus, "err", data.detail || "Lỗi tải danh sách phiếu");
+          return;
+        }
+        todayOrders = data.orders || [];
+        ordersMeta.textContent = `Ngày ${data.date}: tổng ${todayOrders.length} phiếu`;
+        renderOrderList();
+      } catch (err) {
+        ordersMeta.textContent = "Lỗi kết nối";
+        showBox(deleteStatus, "err", `Lỗi tải danh sách phiếu: ${err.message}`);
+      }
+    }
+
+    async function handleDeleteOrder(order, btnEl) {
+      const label = `${order.vehicle_name || ""} (${order.quota_value}L)${order.coupon_code ? ` - ${order.coupon_code}` : ""}`;
+      if (!confirm(`Xác nhận xoá phiếu ${label}?`)) return;
+
+      btnEl.disabled = true;
+      btnEl.textContent = "Đang xoá...";
+      clearBox(deleteStatus);
+
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/delete-ticket`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ id: order.id }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showBox(deleteStatus, "err", data.detail || `Không xoá được phiếu ${label}`);
+          btnEl.disabled = false;
+          btnEl.textContent = "Xoá";
+          return;
+        }
+
+        showBox(deleteStatus, "ok", `${data.message || "Xoá thông tin thành công"}: ${label}`);
+        await loadTodayOrders();
+      } catch (err) {
+        showBox(deleteStatus, "err", `Lỗi xoá phiếu: ${err.message}`);
+        btnEl.disabled = false;
+        btnEl.textContent = "Xoá";
+      }
+    }
+
+    orderFilterInput.addEventListener("input", renderOrderList);
+    btnRefreshOrders.addEventListener("click", loadTodayOrders);
 
     document.getElementById("btnOpenLogin").addEventListener("click", () => {
       const creds = getSavedCreds();
@@ -665,9 +762,10 @@
 
     document.getElementById("btnClearAuth").addEventListener("click", () => {
       clearCreds();
+      setDeletePermission(false);
       customerSelect.innerHTML = `<option value="">-- Đã xoá tài khoản lưu trên máy --</option>`;
       resetVehicleSelects("-- Chọn KH --");
-      showStatus("ok", "Đã xoá thông tin đăng nhập lưu trên thiết bị này.");
+      showBox(issueStatus, "ok", "Đã xoá thông tin đăng nhập lưu trên thiết bị này.");
     });
 
     document.getElementById("btnDoLogin").addEventListener("click", async () => {
@@ -700,7 +798,6 @@
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
-    applyMode("single");
     initTicketForm();
   </script>
 </body>
