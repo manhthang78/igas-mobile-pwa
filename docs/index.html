@@ -19,6 +19,8 @@
       --border: #cbd5e1;
       --ok-bg: #ecfdf5;
       --ok-text: #065f46;
+      --warn-bg: #fffbeb;
+      --warn-text: #92400e;
       --err-bg: #fef2f2;
       --err-text: #991b1b;
     }
@@ -144,6 +146,7 @@
       white-space: pre-line;
     }
     .status.ok { display: block; background: var(--ok-bg); color: var(--ok-text); }
+    .status.warn { display: block; background: var(--warn-bg); color: var(--warn-text); }
     .status.err { display: block; background: var(--err-bg); color: var(--err-text); }
     .modal-backdrop {
       position: fixed;
@@ -237,7 +240,7 @@
       </div>
 
       <div class="meta" id="defaultsInfo">
-        Ngày cấp: 08:00 hôm nay · Ngày hết hạn: 18:00 hôm nay · Hạn mức 1 lần bơm: theo Hạn mức cấp
+        Ngày cấp: 08:00 hôm nay · Ngày hết hạn: 18:00 hôm nay · Hạn mức 1 lần bơm: theo Hạn mức cấp · Chống trùng theo Ngày + Đối tượng + Hạn mức
       </div>
 
       <button type="submit" class="btn-primary" id="btnSubmit">Tạo phiếu</button>
@@ -527,7 +530,7 @@
       quotaInput.value = quotaInput.value.replace(/[^0-9]/g, "");
     });
 
-    async function createSingleTicket(customerId, vehicleId, quotaValue) {
+    async function createSingleTicket(customerId, vehicleId, vehicleName, quotaValue) {
       const res = await fetch(`${WORKER_BASE_URL}/api/create-ticket`, {
         method: "POST",
         headers: {
@@ -537,12 +540,15 @@
         body: JSON.stringify({
           customer_id: customerId,
           vehicle_id: vehicleId,
+          vehicle_name: vehicleName,
           quota_value: quotaValue,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || "Tạo phiếu thất bại");
+        const err = new Error(data.detail || "Tạo phiếu thất bại");
+        err.isDuplicate = res.status === 409 || Boolean(data.duplicate);
+        throw err;
       }
       return data;
     }
@@ -576,7 +582,7 @@
         btnSubmit.disabled = true;
         btnSubmit.textContent = "Đang tạo phiếu...";
         try {
-          const data = await createSingleTicket(customer_id, vehicle_id, quota_value);
+          const data = await createSingleTicket(customer_id, vehicle_id, vehicleText, quota_value);
           const codeInfo = data.coupon_code ? ` · Mã phiếu: ${data.coupon_code}` : "";
           const idInfo = data.ticket_id ? ` (ID: ${data.ticket_id})` : "";
           showStatus(
@@ -585,7 +591,7 @@
           );
           quotaInput.value = "";
         } catch (err) {
-          showStatus("err", err.message || "Tạo phiếu thất bại");
+          showStatus(err.isDuplicate ? "warn" : "err", err.message || "Tạo phiếu thất bại");
         } finally {
           btnSubmit.disabled = false;
           btnSubmit.textContent = "Tạo phiếu";
@@ -602,36 +608,43 @@
 
       btnSubmit.disabled = true;
       const successLogs = [];
+      const dupLogs = [];
       const errorLogs = [];
 
       try {
         for (let i = 0; i < targets.length; i++) {
           const item = targets[i];
-          btnSubmit.textContent = `Đang tạo ${i + 1}/${targets.length}: ${item.text}...`;
+          btnSubmit.textContent = `Đang xử lý ${i + 1}/${targets.length}: ${item.text}...`;
 
           try {
-            const data = await createSingleTicket(customer_id, item.id, quota_value);
+            const data = await createSingleTicket(customer_id, item.id, item.text, quota_value);
             const code = data.coupon_code ? ` [${data.coupon_code}]` : "";
             successLogs.push(`• ${item.text}${code}: ${data.quota_value}L`);
           } catch (err) {
-            errorLogs.push(`• ${item.text}: ${err.message}`);
+            if (err.isDuplicate) {
+              dupLogs.push(`• ${item.text}: ${err.message}`);
+            } else {
+              errorLogs.push(`• ${item.text}: ${err.message}`);
+            }
           }
         }
 
-        if (errorLogs.length === 0) {
-          showStatus(
-            "ok",
-            `Hoàn tất ${successLogs.length}/${targets.length} phiếu (${quota_value}L/phiếu):\n` +
-            successLogs.join("\n")
-          );
+        const parts = [
+          `Tạo mới: ${successLogs.length}/${targets.length} · Trùng bỏ qua: ${dupLogs.length} · Lỗi: ${errorLogs.length}`,
+        ];
+        if (successLogs.length) parts.push(`Đã tạo:\n${successLogs.join("\n")}`);
+        if (dupLogs.length) parts.push(`Bỏ qua do trùng:\n${dupLogs.join("\n")}`);
+        if (errorLogs.length) parts.push(`Lỗi:\n${errorLogs.join("\n")}`);
+
+        const boxType = errorLogs.length > 0
+          ? "err"
+          : dupLogs.length > 0
+          ? "warn"
+          : "ok";
+
+        showStatus(boxType, parts.join("\n\n"));
+        if (successLogs.length > 0 && errorLogs.length === 0) {
           quotaInput.value = "";
-        } else {
-          showStatus(
-            "err",
-            `Thành công: ${successLogs.length}/${targets.length} · Lỗi: ${errorLogs.length}\n` +
-            errorLogs.join("\n") +
-            (successLogs.length ? `\nĐã tạo:\n${successLogs.join("\n")}` : "")
-          );
         }
       } finally {
         btnSubmit.disabled = false;
