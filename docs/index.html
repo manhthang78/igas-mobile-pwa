@@ -207,6 +207,7 @@
       color: var(--danger-soft-text);
       opacity: 0.45;
       cursor: not-allowed;
+      pointer-events: none;
     }
 
     .modal-backdrop {
@@ -699,7 +700,8 @@
         btnDel.textContent = "Xoá";
         if (isPumped) {
           btnDel.disabled = true;
-          btnDel.title = "Phiếu đã bơm dầu, không thể xoá";
+          btnDel.setAttribute("aria-disabled", "true");
+          btnDel.tabIndex = -1;
         } else {
           btnDel.addEventListener("click", () => handleDeleteOrder(o, btnDel));
         }
@@ -735,6 +737,9 @@
     }
 
     async function handleDeleteOrder(order, btnEl) {
+      if (Number(order?.extract_amount || 0) > 0) {
+        return;
+      }
       const label = `${order.vehicle_name || ""} (${order.quota_value}L)${order.coupon_code ? ` - ${order.coupon_code}` : ""}`;
       if (!confirm(`Xác nhận xoá phiếu ${label}?`)) return;
 
