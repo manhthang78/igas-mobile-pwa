@@ -463,7 +463,7 @@
         const chip = document.createElement("div");
         chip.className = "tank-chip";
         chip.innerHTML = `
-          <div class="tank-chip-label">${t.tank_name || `Bồn ${t.atg_id}`} · Cảm biến</div>
+          <div class="tank-chip-label">${t.tank_name || `Bồn ${t.atg_id}`}</div>
           <div class="tank-chip-val">${formatVnNumber(t.sensor_volume_liters)} L</div>
         `;
         tankGrid.appendChild(chip);
