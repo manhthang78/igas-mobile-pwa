@@ -55,6 +55,63 @@
       font-size: 12px;
       font-weight: 600;
     }
+    .tank-bar {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+    .tank-bar-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .tank-bar-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .tank-refresh {
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tank-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .tank-chip {
+      background: #f0fdfa;
+      border: 1px solid #ccfbf1;
+      border-radius: 9px;
+      padding: 7px 10px;
+    }
+    .tank-chip-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .tank-chip-val {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-top: 2px;
+    }
+    .tank-note {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
     .mode-switch {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -240,6 +297,24 @@
       </div>
     </div>
 
+    <div class="tank-bar" id="tankBar">
+      <div class="tank-bar-top">
+        <span class="tank-bar-title">Cảm biến bồn [Lít] (Trạm 1704)</span>
+        <button type="button" class="tank-refresh" id="btnRefreshTanks">Cập nhật bồn</button>
+      </div>
+      <div class="tank-grid" id="tankGrid">
+        <div class="tank-chip">
+          <div class="tank-chip-label">Bồn 1</div>
+          <div class="tank-chip-val">-- L</div>
+        </div>
+        <div class="tank-chip">
+          <div class="tank-chip-label">Bồn 2</div>
+          <div class="tank-chip-val">-- L</div>
+        </div>
+      </div>
+      <div class="tank-note" id="tankNote">Đang tải số liệu cảm biến...</div>
+    </div>
+
     <div class="mode-switch single-tab" id="modeSwitch">
       <button type="button" class="mode-btn active" id="btnTabIssue">Phiếu cấp dầu</button>
       <button type="button" class="mode-btn delete-tab hidden" id="btnTabDelete">Xoá phiếu</button>
@@ -340,6 +415,10 @@
     const issueCard = document.getElementById("issueCard");
     const deleteCard = document.getElementById("deleteCard");
 
+    const tankGrid = document.getElementById("tankGrid");
+    const tankNote = document.getElementById("tankNote");
+    const btnRefreshTanks = document.getElementById("btnRefreshTanks");
+
     const customerSelect = document.getElementById("customerSelect");
     const fromVehicleSelect = document.getElementById("fromVehicleSelect");
     const toVehicleSelect = document.getElementById("toVehicleSelect");
@@ -362,6 +441,65 @@
     let currentVehicles = [];
     let todayOrders = [];
     let canDeletePermission = false;
+
+    function formatVnNumber(val) {
+      const n = Number(val);
+      if (!Number.isFinite(n)) return "--";
+      return n.toLocaleString("vi-VN");
+    }
+
+    function renderTanks(tanks, cbxTime = "") {
+      if (!Array.isArray(tanks) || tanks.length === 0) {
+        tankGrid.innerHTML = `
+          <div class="tank-chip"><div class="tank-chip-label">Bồn 1</div><div class="tank-chip-val">-- L</div></div>
+          <div class="tank-chip"><div class="tank-chip-label">Bồn 2</div><div class="tank-chip-val">-- L</div></div>
+        `;
+        return;
+      }
+
+      tankGrid.style.gridTemplateColumns = `repeat(${Math.min(tanks.length, 2)}, minmax(0, 1fr))`;
+      tankGrid.innerHTML = "";
+      for (const t of tanks) {
+        const chip = document.createElement("div");
+        chip.className = "tank-chip";
+        chip.innerHTML = `
+          <div class="tank-chip-label">${t.tank_name || `Bồn ${t.atg_id}`} · Cảm biến</div>
+          <div class="tank-chip-val">${formatVnNumber(t.sensor_volume_liters)} L</div>
+        `;
+        tankGrid.appendChild(chip);
+      }
+      if (cbxTime) {
+        tankNote.textContent = cbxTime;
+      }
+    }
+
+    async function loadTankSensors() {
+      const creds = getSavedCreds();
+      if (!creds) {
+        tankNote.textContent = "Đăng nhập để xem số đo cảm biến bồn.";
+        return;
+      }
+
+      btnRefreshTanks.disabled = true;
+      tankNote.textContent = "Đang đọc cảm biến bồn...";
+      try {
+        const res = await fetch(`${WORKER_BASE_URL}/api/tank-sensors?station_id=1704`, {
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          tankNote.textContent = data.detail || "Không đọc được cảm biến bồn";
+          return;
+        }
+        renderTanks(data.tanks || [], data.cbx_time || "");
+      } catch (err) {
+        tankNote.textContent = `Lỗi đọc cảm biến: ${err.message}`;
+      } finally {
+        btnRefreshTanks.disabled = false;
+      }
+    }
+
+    btnRefreshTanks.addEventListener("click", loadTankSensors);
 
     function getSavedCreds() {
       try {
@@ -474,6 +612,8 @@
         loginModal.classList.add("open");
         return;
       }
+
+      loadTankSensors();
 
       customerSelect.innerHTML = `<option value="">-- Đang tải khách hàng... --</option>`;
       resetVehicleSelects("-- Chọn KH --");
@@ -790,6 +930,8 @@
     document.getElementById("btnClearAuth").addEventListener("click", () => {
       clearCreds();
       setDeletePermission(false);
+      renderTanks([], "");
+      tankNote.textContent = "Đã xoá tài khoản lưu trên máy.";
       customerSelect.innerHTML = `<option value="">-- Đã xoá tài khoản lưu trên máy --</option>`;
       resetVehicleSelects("-- Chọn KH --");
       showBox(issueStatus, "ok", "Đã xoá thông tin đăng nhập lưu trên thiết bị này.");
